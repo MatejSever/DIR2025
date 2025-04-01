@@ -1,0 +1,75 @@
+ Program
+   BeforeStart
+     open_socket≔socket_open("192.168.65.102",50000,"ur5e_pc")
+     Loop open_socket≟ False 
+       open_socket≔socket_open("192.168.65.102",50000,"ur5e_pc")
+   Robot Program
+     'MoveJ'
+     If open_socket≟ True 
+       string
+         'read string'
+         str≔socket_read_string("ur5e_pc")
+         Loop str≟""
+           str≔socket_read_string("ur5e_pc")
+           Wait: 0.01
+         'send string'
+         was_send≔socket_send_string("ACK","ur5e_pc")
+         Loop was_send≟ False 
+           was_send≔socket_send_string("ACK","ur5e_pc")
+           Wait: 0.01
+         Wait: 0.01
+       integer
+         'read int'
+         data≔socket_read_binary_integer(1,"ur5e_pc")
+         Loop data[0]≟0
+           data≔socket_read_binary_integer(1,"ur5e_pc")
+           Wait: 0.01
+         'send int'
+         was_send≔socket_send_int(9,"ur5e_pc")
+         Loop was_send≟ False 
+           was_send≔socket_send_int(9,"ur5e_pc")
+           Wait: 0.01
+         Wait: 0.01
+       integer array
+         'read Int array'
+         array_size≔3
+         data3≔socket_read_binary_integer(array_size,"ur5e_pc")
+         Loop data3[0]≟0
+           data3≔socket_read_binary_integer(array_size,"ur5e_pc")
+           Wait: 0.01
+         'send int array'
+         int_array≔[4, 5, 6]
+         str_int≔to_str(int_array)
+         was_send≔socket_send_string(str_int,"ur5e_pc")
+         Loop was_send≟ False 
+           was_send≔socket_send_string(str_int,"ur5e_pc")
+           Wait: 0.01
+         Wait: 0.01
+       float
+         'get one float'
+         data4≔socket_read_ascii_float(1,"ur5e_pc")
+         Loop data4[0]≟0
+           data4≔socket_read_ascii_float(1,"ur5e_pc")
+           Wait: 0.01
+         'send array of floats'
+         send_floats≔8.8
+         str_floats≔to_str(send_floats)
+         was_send≔socket_send_string(str_floats,"ur5e_pc")
+         Loop was_send≟ False 
+           was_send≔socket_send_string(str_floats,"ur5e_pc")
+           Wait: 0.01
+       float array
+         'get array of floats'
+         data2≔socket_read_ascii_float(3,"ur5e_pc")
+         Loop data2[0]≟0
+           data2≔socket_read_ascii_float(3,"ur5e_pc")
+           Wait: 0.01
+         'send array of floats'
+         send_floats2≔[4.4, 5.5, 6.6]
+         str_floats≔to_str(send_floats2)
+         was_send≔socket_send_string(str_floats,"ur5e_pc")
+         Loop was_send≟ False 
+           was_send≔socket_send_string(str_floats,"ur5e_pc")
+           Wait: 0.01
+       socket_close("ur5e_pc")
+       Halt
