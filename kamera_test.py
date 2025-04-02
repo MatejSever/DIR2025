@@ -1,67 +1,75 @@
 import cv2
 import numpy as np
 
-cap = cv2.VideoCapture(1)  # ali 0, če imaš integrirano kamero
+# Parametri za filtriranje radija (glede na tvoje podatke)
+reference_radius = 42
+tolerance = 0.15
+min_radius = reference_radius * (1 - tolerance)
+max_radius = reference_radius * (1 + tolerance)
 
-while True:
-    ret, frame = cap.read()
-    if not ret:
-        break
+print(f"🛡️ Sprejemljiv radij: {min_radius:.2f} px – {max_radius:.2f} px")
 
-    # 1) Pretvori v sivine in binarno sliko
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    blur = cv2.GaussianBlur(gray, (5, 5), 0)
-    _, thresh = cv2.threshold(blur, 70, 255, cv2.THRESH_BINARY_INV)
-    kernel1 = np.ones((5,5),np.uint8)
-    thresh = cv2.erode(thresh,kernel1,iterations = 1)
-
-    # 2) Morfološko razširimo (dilate) za ozadje
-    kernel = np.ones((3,3), np.uint8)
-    sure_bg = cv2.dilate(thresh, kernel, iterations=3)
-
-    # 3) Distance transform za iskanje “jedra” objektov
-    dist_transform = cv2.distanceTransform(thresh, cv2.DIST_L2, 5)
-    # Zmanjšaj ali zvišaj 0.5, če se zate stvari ne ločijo
-    _, sure_fg = cv2.threshold(dist_transform, 0.5*dist_transform.max(), 255, 0)
-
-    sure_fg = np.uint8(sure_fg)
-    unknown = cv2.subtract(sure_bg, sure_fg)
-
-    # 4) Ustvari "markerje" z connectedComponents
-    ret2, markers = cv2.connectedComponents(sure_fg)
-    markers = markers + 1  # da bo ozadje = 1
-    markers[unknown == 255] = 0
-
-    # 5) Watershed
-    markers = cv2.watershed(frame, markers)
-
-    # 6) Izris rezultatov
-    output = frame.copy()
-
-    # Vsak objekt ima svojo marker vrednost (2..ret2+1)
-    for marker_val in range(2, ret2+2):
-        # Naredimo masko za ta marker
-        mask = np.where(markers == marker_val, 255, 0).astype('uint8')
-
-        # Poiščemo konture samo tega markerja
-        ccontours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        for cnt in ccontours:
-            if cv2.contourArea(cnt) > 300:
-                rect = cv2.minAreaRect(cnt)
-                center = tuple(map(int, rect[0]))
-                box = cv2.boxPoints(rect).astype(int)
-                print(center)
-                #naredi da poslje sliko
-
-                # Moder outline
-                cv2.drawContours(output, [box], 0, (255, 0, 0), 2)
-                # Turkizna pika v sredini
-                cv2.circle(output, center, 4, (255, 255, 0), -1)
-
-    cv2.imshow("Watershed", output)
-
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
-
+# Zajemi sliko iz kamere
+cap = cv2.VideoCapture(1)
+ret, frame = cap.read()
 cap.release()
+
+if not ret:
+    print("❌ Napaka pri zajemu slike.")
+    exit()
+else:
+    print("✅ Slika uspešno zajeta.")
+
+gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+blur = cv2.GaussianBlur(gray, (5, 5), 0)
+_, thresh = cv2.threshold(blur, 60, 255, cv2.THRESH_BINARY_INV)
+
+# Morfološko čiščenje
+kernel = np.ones((8, 8), np.uint8)
+eroded = cv2.erode(thresh, kernel, iterations=1)
+
+contours, _ = cv2.findContours(eroded, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+print(f"🔍 Najdenih kontur: {len(contours)}")
+
+valid_count = 0
+
+for cnt in contours:
+    if cv2.contourArea(cnt) < 500:
+        continue
+
+    # Najdi minimalni obdajajoči krog (za filtriranje po velikosti)
+    (x, y), radius = cv2.minEnclosingCircle(cnt)
+    center = (int(x), int(y))
+    radius = float(radius)
+
+    if radius < min_radius or radius > max_radius:
+        print(f"⛔️ Figurica izločena (radij: {radius:.2f} px)")
+        continue
+
+    valid_count += 1
+
+    # 📍 Lokacija in 🔄 orientacija
+    rect = cv2.minAreaRect(cnt)  # (center, (width, height), angle)
+    angle = rect[2]
+
+    # Korekcija kota (da je od 0–180 stopinj)
+    if rect[1][0] < rect[1][1]:
+        angle = 90 + angle
+
+    print(f"✅ Figurica {valid_count}: center=({int(x)}, {int(y)}), orientacija={angle:.2f}°")
+
+    # Nariši krog
+    cv2.circle(frame, center, int(radius), (255, 0, 0), 2)
+    cv2.circle(frame, center, 4, (255, 255, 0), -1)
+
+    # Dopiši orientacijo na sliko
+    cv2.putText(frame, f"{angle:.1f} deg", (center[0] + 10, center[1] - 10),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1)
+
+# Shrani in prikaži rezultat
+cv2.imwrite("C:/users/acisa/Desktop/dir_2025/oznake.jpg", frame)
+print("💾 Slika shranjena kot 'oznake.jpg'.")
+
+cv2.imshow("Detekcija z lokacijo in orientacijo", frame)
+cv2.waitKey(0)
 cv2.destroyAllWindows()
