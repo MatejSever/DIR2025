@@ -1,15 +1,15 @@
 import cv2
 import numpy as np
 
-# Parametri za filtriranje radija (glede na tvoje podatke)
+# Konfiguracija radija
 reference_radius = 42
 tolerance = 0.15
 min_radius = reference_radius * (1 - tolerance)
 max_radius = reference_radius * (1 + tolerance)
 
-print(f"🛡️ Sprejemljiv radij: {min_radius:.2f} px – {max_radius:.2f} px")
+print(f"🛡️ Radij mora biti med {min_radius:.2f}px in {max_radius:.2f}px")
 
-# Zajemi sliko iz kamere
+# Zagon kamere
 cap = cv2.VideoCapture(1)
 ret, frame = cap.read()
 cap.release()
@@ -17,59 +17,51 @@ cap.release()
 if not ret:
     print("❌ Napaka pri zajemu slike.")
     exit()
-else:
-    print("✅ Slika uspešno zajeta.")
 
+# 🔹 Prikaz originalne zajete slike
+cv2.imshow("Zajeta slika (original)", frame)
+cv2.waitKey(0)
+
+# Nadaljuj z zaznavo
 gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 blur = cv2.GaussianBlur(gray, (5, 5), 0)
-_, thresh = cv2.threshold(blur, 60, 255, cv2.THRESH_BINARY_INV)
+_, thresh = cv2.threshold(blur, 80, 255, cv2.THRESH_BINARY_INV)
 
-# Morfološko čiščenje
 kernel = np.ones((8, 8), np.uint8)
 eroded = cv2.erode(thresh, kernel, iterations=1)
 
 contours, _ = cv2.findContours(eroded, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 print(f"🔍 Najdenih kontur: {len(contours)}")
 
-valid_count = 0
+results = []
 
 for cnt in contours:
     if cv2.contourArea(cnt) < 500:
         continue
 
-    # Najdi minimalni obdajajoči krog (za filtriranje po velikosti)
     (x, y), radius = cv2.minEnclosingCircle(cnt)
     center = (int(x), int(y))
     radius = float(radius)
 
     if radius < min_radius or radius > max_radius:
-        print(f"⛔️ Figurica izločena (radij: {radius:.2f} px)")
         continue
 
-    valid_count += 1
-
-    # 📍 Lokacija in 🔄 orientacija
-    rect = cv2.minAreaRect(cnt)  # (center, (width, height), angle)
+    rect = cv2.minAreaRect(cnt)
     angle = rect[2]
-
-    # Korekcija kota (da je od 0–180 stopinj)
     if rect[1][0] < rect[1][1]:
-        angle = 90 + angle
+        angle += 90
 
-    print(f"✅ Figurica {valid_count}: center=({int(x)}, {int(y)}), orientacija={angle:.2f}°")
+    results.append([int(x), int(y), round(angle, 2)])
 
-    # Nariši krog
+    # Nariši samo moder krog
     cv2.circle(frame, center, int(radius), (255, 0, 0), 2)
-    cv2.circle(frame, center, 4, (255, 255, 0), -1)
 
-    # Dopiši orientacijo na sliko
-    cv2.putText(frame, f"{angle:.1f} deg", (center[0] + 10, center[1] - 10),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1)
-
-# Shrani in prikaži rezultat
-cv2.imwrite("C:/users/acisa/Desktop/dir_2025/oznake.jpg", frame)
-print("💾 Slika shranjena kot 'oznake.jpg'.")
-
-cv2.imshow("Detekcija z lokacijo in orientacijo", frame)
+# Prikaz slike z detekcijo
+cv2.imshow("Slika z detekcijo (bounding krogi)", frame)
 cv2.waitKey(0)
 cv2.destroyAllWindows()
+
+# Izpis arrayja
+print("\n📦 Shrani array s podatki o figuricah:")
+for i, (x, y, angle) in enumerate(results):
+    print(f"Figurica {i+1}: x={x}, y={y}, orientacija={angle}°")
