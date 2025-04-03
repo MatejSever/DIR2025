@@ -6,7 +6,9 @@ import math
 def pixels_to_mm(coordinates):
     
     #parametre znotraj pow() poskušaj spreminjati, da dobiš boljše transformacije točk
-    dolzina_enega_kvadratka_piksli = math.sqrt(pow((119-59),2) + pow((62-63),2))
+    #dolzina_enega_kvadratka_piksli = math.sqrt(pow((119-59),2) + pow((62-63),2))
+    dolzina_enega_kvadratka_piksli = math.sqrt(pow((336 - 303),2) + pow((293 - 293),2))
+
 
     coord_v_mm = []
     for coordinate in coordinates:
@@ -22,8 +24,8 @@ def pixels_to_mm(coordinates):
 def transformacija(stare_koord):
     x = stare_koord[0]
     y = stare_koord[1]
-    xn = x - 65
-    yn = -y + 415
+    xn = x - 63 #te cifre tudi probaj spreminjat za boljso natancnost
+    yn = -y + 417 #te cifre tudi probaj spreminjat za boljso natancnost
     novi = [[xn,yn]]
     novi_v_mm = pixels_to_mm(novi)
 
@@ -38,7 +40,7 @@ max_radius = reference_radius * (1 + tolerance)
 print(f"🛡️ Sprejemljiv radij: {min_radius:.2f} px – {max_radius:.2f} px")
 
 # Zajemi sliko iz kamere
-cap = cv2.VideoCapture(1)
+cap = cv2.VideoCapture(0)
 ret, frame = cap.read()
 cap.release()
 
@@ -76,11 +78,11 @@ for cnt in contours:
     koordinate_v_pixlih.append([center[0],center[1]])
     #koordinate_v_pixlih.append(center[1])
     radius = float(radius)
-
-    '''if radius < min_radius or radius > max_radius:
+    '''
+    if radius < min_radius or radius > max_radius:
         print(f"⛔️ Figurica izločena (radij: {radius:.2f} px)")
-        continue'''
-
+        continue
+    '''
     valid_count += 1
 
     # 📍 Lokacija in 🔄 orientacija
@@ -100,15 +102,25 @@ for cnt in contours:
     # Dopiši orientacijo na sliko
     cv2.putText(frame, f"{angle:.1f} deg", (center[0] + 10, center[1] - 10),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1)
-    
+  
 koordinate_v_mm = []
 for koordinata in koordinate_v_pixlih:
     conversion = transformacija(koordinata)
-    koordinate_v_mm.append(round(conversion[0],3))
-    koordinate_v_mm.append(round(conversion[1],3))
+
+    conversion[0] = conversion[0]/1000  #pretvorba iz mm v m
+    conversion[1] = conversion[1]/1000  #pretvorba iz mm v m
+
+    koordinate_v_mm.append(round(conversion[0],5)) #pri 5 je natančnost na stotinko mm, če je so koordinate izražene v m
+    koordinate_v_mm.append(round(conversion[1],5))
 
 #zdaj je spremenljivka koordinate_v_mm v taki obliki:prvi element je število koordinat, ki so shranjene v spremenljivki in potem so vse koordinate (x1,y1,x2,y2,...)
 koordinate_v_mm.insert(0, len(koordinate_v_mm))
+
+koordinate_za_posiljanje = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+
+i = 0
+for i in range(len(koordinate_v_mm)):
+    koordinate_za_posiljanje[i] = koordinate_v_mm[i]
 
 # Shrani in prikaži rezultat
 cv2.imwrite("C:/users/acisa/Desktop/dir_2025/oznake.jpg", frame)
